@@ -1,0 +1,25 @@
+# Caddyfile - Reverse Proxy for Hermes Agent
+# Auto HTTPS via Cloudflare Tunnel (no port forwarding needed)
+
+{$DOMAIN:localhost} {
+    # Hermes Agent Gateway
+    reverse_proxy hermes:8642
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+
+    # Logging
+    log {
+        output stdout
+        format console
+    }
+}
+
+# Health check endpoint (internal only)
+:8080 {
+    respond /health "OK" 200
+}

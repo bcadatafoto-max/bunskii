@@ -1,0 +1,17 @@
+# Environment (contains secrets!)
+.env
+
+# Docker volumes (managed by Docker)
+workspace/
+
+# macOS
+.DS_Store
+*.swp
+*.swo
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log

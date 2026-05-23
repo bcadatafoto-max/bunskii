@@ -1,0 +1,82 @@
+version: "3.8"
+
+services:
+  # ─── Hermes Agent ─────────────────────────────────────────
+  hermes:
+    image: ghcr.io/nousresearch/hermes-agent:latest
+    container_name: bunskii-hermes
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${HERMES_PORT:-8642}:8642"
+    volumes:
+      - hermes_data:/app/data
+      - hermes_skills:/app/skills
+      - ./workspace:/app/workspace
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_ALLOWED_USERS=${TELEGRAM_ALLOWED_USERS}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-google/gemini-2.5-flash}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_USERNAME=${GITHUB_USERNAME}
+      - ENABLE_BROWSER=${ENABLE_BROWSER:-true}
+      - ENABLE_VOICE=${ENABLE_VOICE:-false}
+      - MAX_TASKS=${MAX_TASKS:-3}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - TZ=${TZ:-Asia/Jakarta}
+      - AGENT_NAME=${AGENT_NAME:-Bunskii}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8642/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 2G
+
+  # ─── Caddy Reverse Proxy (auto HTTPS) ────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: bunskii-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    depends_on:
+      hermes:
+        condition: service_healthy
+
+  # ─── Cloudflare Tunnel ────────────────────────────────────
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: bunskii-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - caddy
+
+volumes:
+  hermes_data:
+    name: bunskii_hermes_data
+  hermes_skills:
+    name: bunskii_hermes_skills
+  caddy_data:
+    name: bunskii_caddy_data
+  caddy_config:
+    name: bunskii_caddy_config
